@@ -1,33 +1,35 @@
-from datetime import datetime, timedelta
-from schedule.models import Employee, Shift, ShiftRequirement
-
 def generate_shifts():
-    # Preuzmi sve zahtjeve za smjene
-    shift_requirements = ShiftRequirement.objects.all()
+    today = datetime.now().date()
+    departments = Department.objects.all()
 
-    for requirement in shift_requirements:
-        # Preuzmi sve zaposlenike koji mogu raditi u ovoj smjeni
-        available_employees = Employee.objects.filter(
-            department=requirement.department,
-            roles=requirement.role,
-            max_hours_per_week__gt=0  # Možemo dodati dodatne provjere prema uvjetima zaposlenika
-        )
+    for department in departments:
+        shift_requirements = ShiftRequirement.objects.filter(department=department)
 
-        # Dodaj zaposlenike na smjenu dok ne postignemo zahtjevani broj zaposlenika
-        for i, employee in enumerate(available_employees):
-            if i >= requirement.required_employees:
-                break  # Zaustavi kada dostigneš broj potrebnih zaposlenika
+        for shift_requirement in shift_requirements:
+            day_of_week = shift_requirement.day_of_week
+            start_time = shift_requirement.shift_start_time
+            end_time = shift_requirement.shift_end_time
+            required_employees = shift_requirement.required_employees
 
-            # Dodaj smjenu za zaposlenika
-            Shift.objects.create(
-                department=requirement.department,
-                day_of_week=requirement.day_of_week,
-                start_time=requirement.shift_start_time,
-                end_time=requirement.shift_end_time,
-                employee=employee,
-                is_sick=False  # Ovo možemo postaviti prema uvjetima
-            )
-
-# Pozovi funkciju za generiranje smjena
-if __name__ == "__main__":
-    generate_shifts()
+            # Logic to assign employees to shifts
+            # Get all employees available to work this shift
+            employees = Employee.objects.filter(department=department)
+            for employee in employees:
+                if employee.can_work_any_time:
+                    # Assign this employee to any shift
+                    Shift.objects.create(
+                        department=department,
+                        day_of_week=day_of_week,
+                        start_time=start_time,
+                        end_time=end_time,
+                        employee=employee
+                    )
+                elif Shift.objects.filter(employee=employee, day_of_week=day_of_week).count() < required_employees:
+                    # Assign the employee to the shift only if they have not been assigned yet
+                    Shift.objects.create(
+                        department=department,
+                        day_of_week=day_of_week,
+                        start_time=start_time,
+                        end_time=end_time,
+                        employee=employee
+                    )

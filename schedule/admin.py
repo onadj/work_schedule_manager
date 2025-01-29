@@ -56,8 +56,8 @@ class RoleAdmin(admin.ModelAdmin):
 
 @admin.register(Employee)
 class EmployeeAdmin(admin.ModelAdmin):
-    list_display = ('first_name', 'last_name', 'max_hours_per_week', 'can_work_extra', 'rotate_weekends')
-    list_filter = ('roles', 'department', 'can_work_extra', 'rotate_weekends')
+    list_display = ('first_name', 'last_name', 'max_hours_per_week', 'can_work_extra', 'rotate_weekends', 'can_work_any_time')
+    list_filter = ('roles', 'department', 'can_work_extra', 'rotate_weekends', 'can_work_any_time')
     search_fields = ('first_name', 'last_name')
     ordering = ('last_name',)
 
@@ -68,13 +68,19 @@ class EmployeeAdmin(admin.ModelAdmin):
             'fields': ('first_name', 'last_name', 'roles', 'department')
         }),
         ('Work Conditions', {
-            'fields': ('max_hours_per_week', 'can_work_extra', 'rotate_weekends', 'avoid_holidays'),
+            'fields': ('max_hours_per_week', 'can_work_extra', 'rotate_weekends', 'avoid_holidays', 'can_work_any_time', 'available_start_time', 'available_end_time'),
         }),
         ('Absences', {
             'fields': ('total_annual_leave', 'used_annual_leave', 'sick_days', 'unauthorized_absences'),
         }),
     )
 
+    def save_model(self, request, obj, form, change):
+        if obj.can_work_any_time:  # If they can work anytime, clear the available time
+            obj.available_start_time = None
+            obj.available_end_time = None
+        super().save_model(request, obj, form, change)
+        
 @admin.register(Holiday)
 class HolidayAdmin(admin.ModelAdmin):
     list_display = ('name', 'date')
@@ -104,7 +110,6 @@ class ShiftRequirementAdmin(admin.ModelAdmin):
     search_fields = ('department__name', 'role__name')
     ordering = ('day_of_week', 'shift_start_time')
 
-    # New fieldsets with checkboxes and pre-set shift start times
     fieldsets = (
         ('Shift Information', {
             'fields': ('department', 'role', 'day_of_week', 'shift_start_time', 'shift_end_time')
@@ -114,13 +119,13 @@ class ShiftRequirementAdmin(admin.ModelAdmin):
         }),
     )
 
-    # Form for handling shift start times in the admin interface
+    # Custom form to allow time selection
     class ShiftRequirementForm(forms.ModelForm):
         shift_start_time = forms.TimeField(
-            widget=forms.Select(choices=[('08:15', '08:15'), ('08:30', '08:30'), ('12:00', '12:00')])
+            widget=forms.TimeInput(attrs={'type': 'time'})
         )
         shift_end_time = forms.TimeField(
-            widget=forms.Select(choices=[('16:15', '16:15'), ('16:30', '16:30'), ('20:00', '20:00')])
+            widget=forms.TimeInput(attrs={'type': 'time'})
         )
 
         class Meta:
@@ -128,14 +133,6 @@ class ShiftRequirementAdmin(admin.ModelAdmin):
             fields = '__all__'
 
     form = ShiftRequirementForm
-
-    # Enabling dynamic checkboxes for shift assignment
-    def get_queryset(self, request):
-        queryset = super().get_queryset(request)
-        if request.GET.get('department'):
-            department = request.GET['department']
-            queryset = queryset.filter(department__id=department)
-        return queryset
 
 @admin.register(AttendanceReport)
 class AttendanceReportAdmin(admin.ModelAdmin):
