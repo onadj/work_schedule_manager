@@ -40,6 +40,24 @@ class Holiday(models.Model):
     def __str__(self):
         return self.name
 
+
+# Fix indentation here
+class ShiftRequirement(models.Model):
+    department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='shift_requirements')
+    role = models.ForeignKey(Role, on_delete=models.CASCADE, related_name='shift_requirements')
+    day_of_week = models.CharField(
+        max_length=10,
+        choices=[('Monday', 'Monday'), ('Tuesday', 'Tuesday'), ('Wednesday', 'Wednesday'),
+                 ('Thursday', 'Thursday'), ('Friday', 'Friday'), ('Saturday', 'Saturday'), ('Sunday', 'Sunday')],
+    )
+    shift_start_time = models.TimeField()
+    shift_end_time = models.TimeField()
+    required_employees = models.PositiveIntegerField(default=1)
+
+    def __str__(self):
+        return f"{self.department.name} - {self.role.name} on {self.day_of_week} ({self.shift_start_time} - {self.shift_end_time})"
+
+
 class Shift(models.Model):
     department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='shifts')
     day_of_week = models.CharField(
@@ -61,6 +79,7 @@ class Shift(models.Model):
 
     def __str__(self):
         return f"{self.department.name} - {self.day_of_week} ({self.start_time} - {self.end_time})"
+
 
 class AttendanceReport(models.Model):
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='attendance_reports')

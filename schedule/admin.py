@@ -1,5 +1,7 @@
 from django.contrib import admin
-from .models import Employee, Department, Role, Holiday, Shift, AttendanceReport
+from django.http import HttpResponse
+from .models import Employee, Department, Role, Holiday, Shift, AttendanceReport, ShiftRequirement
+from .generate_schedule import generate_shifts
 from django.utils.translation import gettext_lazy as _
 from django.contrib.admin import SimpleListFilter
 from django import forms
@@ -7,7 +9,7 @@ from datetime import datetime, timedelta
 
 # Custom filter class for filtering by date range
 class DateRangeFilter(SimpleListFilter):
-    title = _('date range')  # or use a custom title
+    title = _('date range')
     parameter_name = 'date_range'
 
     def lookups(self, request, model_admin):
@@ -34,18 +36,14 @@ class DateRangeFilter(SimpleListFilter):
             end_of_month = start_of_month.replace(month=start_of_month.month + 1) - timedelta(days=1)
             return queryset.filter(date__range=[start_of_month, end_of_month])
         elif self.value() == 'custom':
-            # No default implementation for custom date filter here
             pass
         return queryset
 
-
-# Form for custom date range
 class CustomDateRangeForm(forms.Form):
     start_date = forms.DateField(widget=forms.SelectDateWidget())
     end_date = forms.DateField(widget=forms.SelectDateWidget())
 
-
-# Customize the admin view for AttendanceReport
+# Admin views
 @admin.register(Department)
 class DepartmentAdmin(admin.ModelAdmin):
     list_display = ('name', 'description')
@@ -63,7 +61,7 @@ class EmployeeAdmin(admin.ModelAdmin):
     search_fields = ('first_name', 'last_name')
     ordering = ('last_name',)
 
-    filter_horizontal = ('roles', 'department')  # Enables multi-select in admin panel
+    filter_horizontal = ('roles', 'department')
 
     fieldsets = (
         ('Basic Information', {
@@ -90,14 +88,62 @@ class ShiftAdmin(admin.ModelAdmin):
     search_fields = ('employee__first_name', 'employee__last_name')
     ordering = ('day_of_week', 'start_time')
 
+    actions = ['generate_shifts_action']
+
+    def generate_shifts_action(self, request, queryset):
+        generate_shifts()  # Call function to generate shifts
+        self.message_user(request, "Smjene su uspješno generirane!")  # Notify user
+        return HttpResponse("Smjene su generirane.", content_type="text/plain")
+    
+    generate_shifts_action.short_description = "Generiraj smjene za sve zahtjeve"
+
+@admin.register(ShiftRequirement)
+class ShiftRequirementAdmin(admin.ModelAdmin):
+    list_display = ('department', 'role', 'day_of_week', 'shift_start_time', 'shift_end_time', 'required_employees')
+    list_filter = ('department', 'role', 'day_of_week')
+    search_fields = ('department__name', 'role__name')
+    ordering = ('day_of_week', 'shift_start_time')
+
+    # New fieldsets with checkboxes and pre-set shift start times
+    fieldsets = (
+        ('Shift Information', {
+            'fields': ('department', 'role', 'day_of_week', 'shift_start_time', 'shift_end_time')
+        }),
+        ('Required Employees', {
+            'fields': ('required_employees',),
+        }),
+    )
+
+    # Form for handling shift start times in the admin interface
+    class ShiftRequirementForm(forms.ModelForm):
+        shift_start_time = forms.TimeField(
+            widget=forms.Select(choices=[('08:15', '08:15'), ('08:30', '08:30'), ('12:00', '12:00')])
+        )
+        shift_end_time = forms.TimeField(
+            widget=forms.Select(choices=[('16:15', '16:15'), ('16:30', '16:30'), ('20:00', '20:00')])
+        )
+
+        class Meta:
+            model = ShiftRequirement
+            fields = '__all__'
+
+    form = ShiftRequirementForm
+
+    # Enabling dynamic checkboxes for shift assignment
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        if request.GET.get('department'):
+            department = request.GET['department']
+            queryset = queryset.filter(department__id=department)
+        return queryset
+
 @admin.register(AttendanceReport)
 class AttendanceReportAdmin(admin.ModelAdmin):
     list_display = ('employee', 'date', 'status', 'hours_worked')
-    list_filter = ('status', 'date', DateRangeFilter)  # Adding custom DateRangeFilter to the list_filter
+    list_filter = ('status', 'date', DateRangeFilter)
     search_fields = ('employee__first_name', 'employee__last_name')
     ordering = ('-date',)
 
-    # Override changelist_view to display custom date range form
     def changelist_view(self, request, extra_context=None):
         if 'date_range' in request.GET and request.GET['date_range'] == 'custom':
             form = CustomDateRangeForm(request.GET)
@@ -109,11 +155,3 @@ class AttendanceReportAdmin(admin.ModelAdmin):
             else:
                 extra_context = {'form': form}
         return super().changelist_view(request, extra_context=extra_context)
-
-    def get_search_results(self, request, queryset, search_term):
-        # Ensure this method returns both a queryset and a flag indicating possible duplicates
-        if 'start_date' in request.GET and 'end_date' in request.GET:
-            start_date = request.GET['start_date']
-            end_date = request.GET['end_date']
-            return queryset.filter(date__gte=start_date, date__lte=end_date), False
-        return queryset, False  # Default return for search functionality
