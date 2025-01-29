@@ -28,17 +28,20 @@ DEBUG = True
 ALLOWED_HOSTS = ['8000-onadj-workschedulemana-tebtlgf73yw.ws-eu117.gitpod.io']
 CSRF_TRUSTED_ORIGINS = ['https://8000-onadj-workschedulemana-tebtlgf73yw.ws-eu117.gitpod.io']
 
-
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = False
 
 # Application definition
 
 INSTALLED_APPS = [
+    'jazzmin',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'schedule',
 ]
 
 MIDDLEWARE = [
@@ -123,3 +126,16 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+JAZZMIN_SETTINGS = {
+    "site_title": "Admin Panel",
+    "site_header": "Employee Management",
+    "welcome_sign": "Welcome to Employee Management System",
+    "search_model": ["app_name.Employee", "app_name.Department"],  # Zamijeni "app_name" sa stvarnim nazivom aplikacije
+    "topmenu_links": [
+        {"name": "Home", "url": "admin:index", "permissions": ["auth.view_user"]},
+        {"model": "app_name.Employee"},
+        {"model": "app_name.Department"},
+    ],
+}
