@@ -33,8 +33,13 @@ class Employee(models.Model):
     available_start_time = models.TimeField(null=True, blank=True, help_text="Earliest available time to work (leave blank for 24-hour availability).")
     available_end_time = models.TimeField(null=True, blank=True, help_text="Latest available time to work (leave blank for 24-hour availability).")
 
+    # Absences
+    on_holiday = models.BooleanField(default=False, help_text="Is the employee currently on holiday?")
+    on_sick_leave = models.BooleanField(default=False, help_text="Is the employee currently on sick leave?")
+
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
+
 
 class Holiday(models.Model):
     name = models.CharField(max_length=100, unique=True)

@@ -56,8 +56,8 @@ class RoleAdmin(admin.ModelAdmin):
 
 @admin.register(Employee)
 class EmployeeAdmin(admin.ModelAdmin):
-    list_display = ('first_name', 'last_name', 'max_hours_per_week', 'can_work_extra', 'rotate_weekends', 'can_work_any_time')
-    list_filter = ('roles', 'department', 'can_work_extra', 'rotate_weekends', 'can_work_any_time')
+    list_display = ('first_name', 'last_name', 'max_hours_per_week', 'can_work_extra', 'rotate_weekends', 'can_work_any_time', 'on_holiday', 'on_sick_leave')
+    list_filter = ('roles', 'department', 'can_work_extra', 'rotate_weekends', 'can_work_any_time', 'on_holiday', 'on_sick_leave')
     search_fields = ('first_name', 'last_name')
     ordering = ('last_name',)
 
@@ -71,7 +71,7 @@ class EmployeeAdmin(admin.ModelAdmin):
             'fields': ('max_hours_per_week', 'can_work_extra', 'rotate_weekends', 'avoid_holidays', 'can_work_any_time', 'available_start_time', 'available_end_time'),
         }),
         ('Absences', {
-            'fields': ('total_annual_leave', 'used_annual_leave', 'sick_days', 'unauthorized_absences'),
+            'fields': ('total_annual_leave', 'used_annual_leave', 'sick_days', 'unauthorized_absences', 'on_holiday', 'on_sick_leave'),
         }),
     )
 
