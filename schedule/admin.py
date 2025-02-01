@@ -49,7 +49,6 @@ class CustomDateRangeForm(forms.Form):
 class FlexibleShiftInline(admin.TabularInline):
     model = FlexibleShift
     extra = 1  # Omogućuje dodavanje više vremenskih okvira
-    admin.site.register(FlexibleShift)
 
 @admin.register(Department)
 class DepartmentAdmin(admin.ModelAdmin):
@@ -64,46 +63,39 @@ class RoleAdmin(admin.ModelAdmin):
 
 @admin.register(Employee)
 class EmployeeAdmin(admin.ModelAdmin):
-    list_display = ('first_name', 'last_name', 'max_hours_per_week', 'can_work_extra', 'rotate_weekends', 'can_work_any_time', 'on_holiday', 'on_sick_leave')
-    list_filter = ('roles', 'department', 'can_work_extra', 'rotate_weekends', 'can_work_any_time', 'on_holiday', 'on_sick_leave', 'work_days')
+    list_display = ('first_name', 'last_name', 'max_hours_per_week', 'can_work_extra', 'rotate_weekends', 'can_work_any_time', 'can_work_night_shift', 'on_holiday', 'on_sick_leave')
+    list_filter = ('roles', 'department', 'can_work_extra', 'rotate_weekends', 'can_work_any_time', 'can_work_night_shift', 'on_holiday', 'on_sick_leave', 'available_days')
     search_fields = ('first_name', 'last_name')
     ordering = ('last_name',)
-    filter_horizontal = ('roles', 'work_days')  # Dodano work_days
+    filter_horizontal = ('roles', 'available_days')
 
     fieldsets = (
         ('Basic Information', {
             'fields': ('first_name', 'last_name', 'roles', 'department')
         }),
         ('Work Conditions', {
-            'fields': ('max_hours_per_week', 'can_work_extra', 'rotate_weekends', 'avoid_holidays', 'can_work_any_time', 'available_start_time', 'available_end_time', 'work_days'),
+            'fields': ('max_hours_per_week', 'max_hours_per_day', 'preferred_shift_length', 'can_work_extra', 'rotate_weekends', 'avoid_holidays', 'can_work_any_time', 'can_work_night_shift', 'available_start_time', 'available_end_time', 'available_days'),
         }),
         ('Absences', {
             'fields': ('total_annual_leave', 'used_annual_leave', 'sick_days', 'unauthorized_absences', 'on_holiday', 'on_sick_leave'),
         }),
     )
 
+@admin.register(ShiftRequirement)
 class ShiftRequirementAdmin(admin.ModelAdmin):
-    list_display = ('department', 'role', 'day_of_week', 'shift_start_time', 'shift_end_time', 'required_employees')
+    list_display = ('department', 'role', 'day_of_week', 'shift_type', 'total_hours_needed')
     list_filter = ('department', 'role', 'day_of_week')
     search_fields = ('department__name', 'role__name')
-    ordering = ('day_of_week', 'shift_start_time')
+    ordering = ('day_of_week',)
 
-    actions = ['generate_schedule_action']  # Dodajemo akciju za generiranje smjena
+    actions = ['generate_schedule_action']
 
     def generate_schedule_action(self, request, queryset):
-        # Pozivamo funkciju za generiranje smjena, prosljeđujemo 'request' radi obavijesti
-        generate_shifts(request)  
+        generate_shifts(request)
         messages.success(request, "Raspored je uspješno generiran za sve odjele!")
-        return redirect("/admin/schedule/shiftrequirement/")  # Redirektanje na popis nakon generiranja
+        return redirect("/admin/schedule/shiftrequirement/")
 
-    generate_schedule_action.short_description = "Generiraj raspored za sve odjele" 
-
-    def save_model(self, request, obj, form, change):
-        # Ovo omogućuje da se funkcija za generiranje smjena pokrene nakon što je objekat spremljen
-        super().save_model(request, obj, form, change)
-
-# Registracija modela u admin
-admin.site.register(ShiftRequirement, ShiftRequirementAdmin)
+    generate_schedule_action.short_description = "Generiraj raspored za sve odjele"
 
 @admin.register(WorkDay)
 class WorkDayAdmin(admin.ModelAdmin):
