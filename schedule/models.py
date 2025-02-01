@@ -3,6 +3,8 @@ from django.db import models
 class Department(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField(null=True, blank=True, default='No description')
+    work_start_time = models.TimeField(default="08:00")  # Default vrijeme, može se mijenjati
+    work_end_time = models.TimeField(default="18:00")
 
     def __str__(self):
         return self.name
@@ -53,14 +55,24 @@ class Employee(models.Model):
 
 class ShiftRequirement(models.Model):
     department = models.ForeignKey(Department, on_delete=models.CASCADE)
-    role = models.ForeignKey(Role, on_delete=models.CASCADE, default=1)
-    day_of_week = models.CharField(max_length=10)
+    role = models.ForeignKey(Role, on_delete=models.CASCADE, null=True, blank=True)
+    day_of_week = models.CharField(max_length=10, choices=WorkDay.DAYS_OF_WEEK)
     shift_start_time = models.TimeField()
     shift_end_time = models.TimeField()
     required_employees = models.IntegerField()
 
     def __str__(self):
-        return f"{self.role} - {self.day_of_week}"
+        return f"{self.department.name} - {self.day_of_week} ({self.shift_start_time} - {self.shift_end_time})"
+
+class FlexibleShift(models.Model):
+    department = models.ForeignKey(Department, on_delete=models.CASCADE)
+    shift_start_time = models.TimeField()
+    shift_end_time = models.TimeField()
+
+    def __str__(self):
+        return f"{self.department.name}: {self.shift_start_time} - {self.shift_end_time}"
+
+
 
 class Shift(models.Model):
     department = models.ForeignKey(Department, on_delete=models.CASCADE)

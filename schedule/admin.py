@@ -8,7 +8,7 @@ from django.contrib.admin import SimpleListFilter
 from django import forms
 from datetime import datetime, timedelta
 
-from .models import Employee, Department, Role, Holiday, Shift, AttendanceReport, ShiftRequirement, WorkDay
+from .models import Employee, Department, Role, Holiday, Shift, AttendanceReport, ShiftRequirement, WorkDay, FlexibleShift
 from .generate_schedule import generate_shifts
 
 class DateRangeFilter(SimpleListFilter):
@@ -46,10 +46,16 @@ class CustomDateRangeForm(forms.Form):
     start_date = forms.DateField(widget=forms.SelectDateWidget())
     end_date = forms.DateField(widget=forms.SelectDateWidget())
 
+class FlexibleShiftInline(admin.TabularInline):
+    model = FlexibleShift
+    extra = 1  # Omogućuje dodavanje više vremenskih okvira
+    admin.site.register(FlexibleShift)
+
 @admin.register(Department)
 class DepartmentAdmin(admin.ModelAdmin):
-    list_display = ('name', 'description')
+    list_display = ('name', 'description', 'work_start_time', 'work_end_time')
     search_fields = ('name',)
+    inlines = [FlexibleShiftInline]  # Omogućava unos fleksibilnih smjena
 
 @admin.register(Role)
 class RoleAdmin(admin.ModelAdmin):
