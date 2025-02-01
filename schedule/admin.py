@@ -82,19 +82,21 @@ class ShiftRequirementAdmin(admin.ModelAdmin):
     search_fields = ('department__name', 'role__name')
     ordering = ('day_of_week', 'shift_start_time')
 
-    actions = ['generate_schedule_action']
+    actions = ['generate_schedule_action']  # Dodajemo akciju za generiranje smjena
 
     def generate_schedule_action(self, request, queryset):
-        generate_shifts()  # Ovdje pozivaš funkciju za generiranje smjena
-        messages.success(request, "Raspored je uspješno generiran!")
-        return redirect("/admin/schedule/shiftrequirement/")
+        # Pozivamo funkciju za generiranje smjena, prosljeđujemo 'request' radi obavijesti
+        generate_shifts(request)  
+        messages.success(request, "Raspored je uspješno generiran za sve odjele!")
+        return redirect("/admin/schedule/shiftrequirement/")  # Redirektanje na popis nakon generiranja
 
-    generate_schedule_action.short_description = "Generiraj raspored"
+    generate_schedule_action.short_description = "Generiraj raspored za sve odjele" 
 
     def save_model(self, request, obj, form, change):
-        # Ovo se koristi za prilagodbu smjena na temelju dostupnosti zaposlenika
+        # Ovo omogućuje da se funkcija za generiranje smjena pokrene nakon što je objekat spremljen
         super().save_model(request, obj, form, change)
 
+# Registracija modela u admin
 admin.site.register(ShiftRequirement, ShiftRequirementAdmin)
 
 @admin.register(WorkDay)
