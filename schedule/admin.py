@@ -1,13 +1,16 @@
 from django.contrib import admin
+from django.urls import path
+from django.shortcuts import redirect
+from django.contrib import messages
 from django.http import HttpResponse
-from .models import Employee, Department, Role, Holiday, Shift, AttendanceReport, ShiftRequirement
-from .generate_schedule import generate_shifts
 from django.utils.translation import gettext_lazy as _
 from django.contrib.admin import SimpleListFilter
 from django import forms
 from datetime import datetime, timedelta
 
-# Custom filter class for filtering by date range
+from .models import Employee, Department, Role, Holiday, Shift, AttendanceReport, ShiftRequirement
+from .generate_schedule import generate_shifts  # Provjeri da funkcija ispravno radi
+
 class DateRangeFilter(SimpleListFilter):
     title = _('date range')
     parameter_name = 'date_range'
@@ -43,7 +46,6 @@ class CustomDateRangeForm(forms.Form):
     start_date = forms.DateField(widget=forms.SelectDateWidget())
     end_date = forms.DateField(widget=forms.SelectDateWidget())
 
-# Admin views
 @admin.register(Department)
 class DepartmentAdmin(admin.ModelAdmin):
     list_display = ('name', 'description')
@@ -61,7 +63,7 @@ class EmployeeAdmin(admin.ModelAdmin):
     search_fields = ('first_name', 'last_name')
     ordering = ('last_name',)
 
-    filter_horizontal = ('roles', 'department')
+    filter_horizontal = ('roles',)  # Only keep this for many-to-many fields like 'roles'
 
     fieldsets = (
         ('Basic Information', {
@@ -97,8 +99,8 @@ class ShiftAdmin(admin.ModelAdmin):
     actions = ['generate_shifts_action']
 
     def generate_shifts_action(self, request, queryset):
-        generate_shifts()  # Call function to generate shifts
-        self.message_user(request, "Smjene su uspješno generirane!")  # Notify user
+        generate_shifts()  # Poziva funkciju generiranja smjena
+        self.message_user(request, "Smjene su uspješno generirane!")  # Notifikacija
         return HttpResponse("Smjene su generirane.", content_type="text/plain")
     
     generate_shifts_action.short_description = "Generiraj smjene za sve zahtjeve"
@@ -110,16 +112,15 @@ class ShiftRequirementAdmin(admin.ModelAdmin):
     search_fields = ('department__name', 'role__name')
     ordering = ('day_of_week', 'shift_start_time')
 
-    fieldsets = (
-        ('Shift Information', {
-            'fields': ('department', 'role', 'day_of_week', 'shift_start_time', 'shift_end_time')
-        }),
-        ('Required Employees', {
-            'fields': ('required_employees',),
-        }),
-    )
+    actions = ['generate_schedule_action']
 
-    # Custom form to allow time selection
+    def generate_schedule_action(self, request, queryset):
+        generate_shifts()
+        messages.success(request, "Raspored je uspješno generiran!")
+        return redirect("/admin/schedule/shiftrequirement/")
+
+    generate_schedule_action.short_description = "Generiraj raspored"
+
     class ShiftRequirementForm(forms.ModelForm):
         shift_start_time = forms.TimeField(
             widget=forms.TimeInput(attrs={'type': 'time'})
@@ -152,3 +153,13 @@ class AttendanceReportAdmin(admin.ModelAdmin):
             else:
                 extra_context = {'form': form}
         return super().changelist_view(request, extra_context=extra_context)
+
+# URL za generiranje rasporeda iz admin panela
+def generate_schedule_view(request):
+    generate_shifts()
+    messages.success(request, "Raspored generiran!")
+    return redirect("/admin/schedule/shiftrequirement/")
+
+urlpatterns = [
+    path("generate_schedule/", generate_schedule_view, name="generate_schedule_view"),
+]

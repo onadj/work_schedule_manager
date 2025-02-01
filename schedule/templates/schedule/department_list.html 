@@ -1,0 +1,25 @@
+{% extends "base_generic.html" %}
+
+{% block content %}
+  <h1>Department List</h1>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for department in object_list %}
+        <tr>
+          <td><a href="{% url 'schedule:department_detail' pk=department.pk %}">{{ department.name }}</a></td>
+          <td>{{ department.description }}</td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="2">No departments found.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends "base_generic.html" %}
+
+{% block content %}
+  <h1>{{ object.first_name }} {{ object.last_name }}</h1>
+  <p><strong>Max Hours per Week:</strong> {{ object.max_hours_per_week }}</p>
+  <p><strong>Roles:</strong>
+    {% for role in object.roles.all %}
+      {{ role.name }}{% if not forloop.last %}, {% endif %}
+    {% endfor %}
+  </p>
+  <p><strong>Departments:</strong>
+    {% for department in object.department.all %}
+      {{ department.name }}{% if not forloop.last %}, {% endif %}
+    {% endfor %}
+  </p>
+  <p><strong>Available Time:</strong> {{ object.available_start_time }} to {{ object.available_end_time }}</p>
+  <p><strong>On Holiday:</strong> {{ object.on_holiday }}</p>
+  <p><strong>On Sick Leave:</strong> {{ object.on_sick_leave }}</p>
+  <p><strong>Total Annual Leave:</strong> {{ object.total_annual_leave }} days</p>
+  <p><strong>Used Annual Leave:</strong> {{ object.used_annual_leave }} days</p>
+  <p><strong>Sick Days:</strong> {{ object.sick_days }} days</p>
+  <p><strong>Unauthorized Absences:</strong> {{ object.unauthorized_absences }} days</p>
+{% endblock %}

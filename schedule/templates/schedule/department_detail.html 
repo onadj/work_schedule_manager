@@ -1,0 +1,14 @@
+{% extends "base_generic.html" %}
+
+{% block content %}
+  <h1>{{ object.name }}</h1>
+  <p><strong>Description:</strong> {{ object.description }}</p>
+  <h2>Employees in this department:</h2>
+  <ul>
+    {% for employee in object.employees.all %}
+      <li>{{ employee.first_name }} {{ employee.last_name }}</li>
+    {% empty %}
+      <li>No employees found in this department.</li>
+    {% endfor %}
+  </ul>
+{% endblock %}

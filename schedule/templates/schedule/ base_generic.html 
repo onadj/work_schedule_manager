@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Schedule</title>
+</head>
+<body>
+    <header>
+        <h1>Employee Scheduling System</h1>
+        <nav>
+            <ul>
+                <li><a href="{% url 'schedule:employee_list' %}">Employees</a></li>
+                <li><a href="{% url 'schedule:department_list' %}">Departments</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        {% block content %}
+        {% endblock %}
+    </main>
+
+    <footer>
+        <p>&copy; 2025 Employee Scheduling System</p>
+    </footer>
+</body>
+</html>
