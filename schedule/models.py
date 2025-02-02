@@ -104,6 +104,7 @@ class Shift(models.Model):
 
     def __str__(self):
         return f"{self.employee} - {self.day_of_week} ({self.start_time} - {self.end_time})"
+        
 class AttendanceReport(models.Model):
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
     date = models.DateField()

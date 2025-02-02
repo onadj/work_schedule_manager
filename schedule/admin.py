@@ -7,6 +7,8 @@ from django.utils.translation import gettext_lazy as _
 from django.contrib.admin import SimpleListFilter
 from django import forms
 from datetime import datetime, timedelta
+from django.db.models import Sum
+
 
 from .models import Employee, Department, Role, Holiday, Shift, AttendanceReport, ShiftRequirement, WorkDay, FlexibleShift
 from .generate_schedule import generate_shifts
@@ -66,7 +68,8 @@ class EmployeeAdmin(admin.ModelAdmin):
     filter_horizontal = ('roles', 'available_days')
 
     def total_assigned_hours(self, obj):
-        total_hours = Shift.objects.filter(employee=obj).aggregate(total_hours=admin.models.Sum('hours'))['total_hours'] or 0
+        # Aggregate the total hours for the employee from Shift model
+        total_hours = Shift.objects.filter(employee=obj).aggregate(total_hours=Sum('hours'))['total_hours'] or 0
         return total_hours
     total_assigned_hours.short_description = "Total Assigned Hours"
 
