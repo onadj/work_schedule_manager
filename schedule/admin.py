@@ -83,10 +83,19 @@ class EmployeeAdmin(admin.ModelAdmin):
 
 @admin.register(ShiftRequirement)
 class ShiftRequirementAdmin(admin.ModelAdmin):
-    list_display = ('department', 'role', 'day_of_week', 'shift_type', 'total_hours_needed')
+    list_display = ('department', 'role', 'day_of_week', 'shift_type', 'total_hours_needed', 'night_shift_hours_needed')
     list_filter = ('department', 'role', 'day_of_week')
     search_fields = ('department__name', 'role__name')
     ordering = ('day_of_week',)
+
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('department', 'role', 'day_of_week', 'shift_type')
+        }),
+        ('Shift Requirements', {
+            'fields': ('total_hours_needed', 'night_shift_hours_needed'),
+        }),
+    )
 
     actions = ['generate_schedule_action']
 

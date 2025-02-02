@@ -6,8 +6,9 @@ def generate_shifts(request=None):
     today = datetime.now().date()
     requirements = ShiftRequirement.objects.all()
 
-    # Inicijaliziraj praćenje sati po zaposleniku
+    # Inicijaliziraj praćenje sati po zaposleniku i po danu
     employee_hours = {employee.id: 0 for employee in Employee.objects.all()}
+    day_hours = {}  # Praćenje ukupnih sati po danu
 
     for requirement in requirements:
         department = requirement.department
@@ -15,6 +16,11 @@ def generate_shifts(request=None):
         day_of_week = requirement.day_of_week
         shift_type = requirement.shift_type
         total_hours_needed = requirement.total_hours_needed
+        night_shift_hours_needed = requirement.night_shift_hours_needed
+
+        # Inicijaliziraj praćenje sati za dan ako već nije postavljeno
+        if day_of_week not in day_hours:
+            day_hours[day_of_week] = 0
 
         # Pronađi dostupne zaposlenike
         available_employees = Employee.objects.filter(
@@ -35,10 +41,6 @@ def generate_shifts(request=None):
             key=lambda emp: employee_hours[emp.id]
         )
 
-        # Inicijaliziraj varijable za praćenje dodijeljenih sati
-        assigned_hours = 0
-        assigned_employees = []
-
         # Odredi početno i završno vrijeme smjene
         if shift_type == '08-20':
             start_time = time(8, 0)
@@ -55,13 +57,14 @@ def generate_shifts(request=None):
         elif shift_type == '20-08':
             start_time = time(20, 0)
             end_time = time(8, 0)
-            shift_hours = 12
+            shift_hours = night_shift_hours_needed  # Koristimo ručno unesene sate za noćne smjene
         else:
             continue  # Ako je nepoznat tip smjene, preskoči
 
         # Dodijeli smjene
         for employee in available_employees:
-            if assigned_hours >= total_hours_needed:
+            # Provjeri da li je ukupan broj sati za dan već ispunjen
+            if day_hours[day_of_week] >= total_hours_needed:
                 break
 
             # Provjeri maksimalne sate tjedno i dnevno
@@ -76,12 +79,11 @@ def generate_shifts(request=None):
                     end_time=end_time,
                     employee=employee,
                 )
-                assigned_hours += shift_hours
-                assigned_employees.append(employee)
+                day_hours[day_of_week] += shift_hours
                 employee_hours[employee.id] += shift_hours
 
         # Ako nema dovoljno zaposlenika, prikaži upozorenje
-        if assigned_hours < total_hours_needed and request:
+        if day_hours[day_of_week] < total_hours_needed and request:
             messages.warning(
                 request,
                 f"Nema dovoljno zaposlenika za pokriti {total_hours_needed} sati za {day_of_week} u odjelu {department.name}."

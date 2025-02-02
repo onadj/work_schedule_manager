@@ -68,6 +68,7 @@ class ShiftRequirement(models.Model):
     day_of_week = models.CharField(max_length=10, choices=WorkDay.DAYS_OF_WEEK)
     shift_type = models.CharField(max_length=10, choices=SHIFT_TYPES, default='08-20')
     total_hours_needed = models.IntegerField(default=24)  # Ukupan broj sati potrebnih za dan
+    night_shift_hours_needed = models.IntegerField(default=12)  # Broj sati potrebnih za noćne smjene
 
     def __str__(self):
         return f"{self.department.name} - {self.day_of_week} ({self.shift_type})"
