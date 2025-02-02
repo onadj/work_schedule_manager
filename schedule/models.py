@@ -30,6 +30,8 @@ class WorkDay(models.Model):
     def __str__(self):
         return self.name
 
+from django.db import models
+
 class Employee(models.Model):
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
@@ -42,7 +44,8 @@ class Employee(models.Model):
     rotate_weekends = models.BooleanField(default=False)
     avoid_holidays = models.BooleanField(default=False)
     can_work_any_time = models.BooleanField(default=False)
-    can_work_night_shift = models.BooleanField(default=False)  # Dodano polje za noćne smjene
+    can_work_night_shift = models.BooleanField(default=False)
+    can_work_full_day = models.BooleanField(default=False)  # Mogu raditi cijeli dan
     on_holiday = models.BooleanField(default=False)
     on_sick_leave = models.BooleanField(default=False)
     total_annual_leave = models.IntegerField(default=0)
@@ -51,10 +54,19 @@ class Employee(models.Model):
     unauthorized_absences = models.IntegerField(default=0)
     available_start_time = models.TimeField(null=True, blank=True)
     available_end_time = models.TimeField(null=True, blank=True)
-    available_days = models.ManyToManyField(WorkDay, blank=True)  # Dani kada je zaposlenik dostupan
+    available_days = models.ManyToManyField(WorkDay, blank=True)
 
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
+
+    def is_available_for_shift(self, start_time, end_time):
+        # Provjerava dostupnost zaposlenika za smjenu
+        if start_time >= self.available_start_time and end_time <= self.available_end_time:
+            return True
+        return False
+
+
+
 
 class ShiftRequirement(models.Model):
     SHIFT_TYPES = [
@@ -82,15 +94,16 @@ class FlexibleShift(models.Model):
         return f"{self.department.name}: {self.shift_start_time} - {self.shift_end_time}"
 
 class Shift(models.Model):
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
     department = models.ForeignKey(Department, on_delete=models.CASCADE)
-    day_of_week = models.CharField(max_length=10, choices=WorkDay.DAYS_OF_WEEK)
     start_time = models.TimeField()
     end_time = models.TimeField()
-    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='shift')
+    day_of_week = models.CharField(max_length=10)
+    shift_type = models.CharField(max_length=10, choices=[('08-20', 'Full Day'), ('08-14', 'Morning'), ('14-20', 'Afternoon')], default='08-20')  # Dodano
+    hours = models.IntegerField(default=6)  # Dodano
 
     def __str__(self):
         return f"{self.employee} - {self.day_of_week} ({self.start_time} - {self.end_time})"
-
 class AttendanceReport(models.Model):
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
     date = models.DateField()

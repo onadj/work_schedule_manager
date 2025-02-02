@@ -1,94 +1,62 @@
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from django.contrib import messages
-from .models import Department, Employee, WorkDay, Shift, ShiftRequirement
+from .models import Employee, Shift, WorkDay, ShiftRequirement
 
-def generate_shifts(request=None):
+def generate_shifts(request):
     today = datetime.now().date()
-    requirements = ShiftRequirement.objects.all()
+    work_days = WorkDay.objects.all()  # Svi radni dani (Monday, Tuesday, ...)
 
-    # Inicijaliziraj praćenje sati po zaposleniku i po danu
+    # Svi zaposlenici s početnim radnim satima postavljenim na 0
     employee_hours = {employee.id: 0 for employee in Employee.objects.all()}
-    day_hours = {}  # Praćenje ukupnih sati po danu
 
-    for requirement in requirements:
-        department = requirement.department
-        role = requirement.role
-        day_of_week = requirement.day_of_week
-        shift_type = requirement.shift_type
-        total_hours_needed = requirement.total_hours_needed
-        night_shift_hours_needed = requirement.night_shift_hours_needed
+    # Definiranje smjena
+    shift_options = {
+        '08-20': (time(8, 0), time(20, 0), 12),
+        '08-14': (time(8, 0), time(14, 0), 6),
+        '14-20': (time(14, 0), time(20, 0), 6),
+        '20-08': (time(20, 0), time(8, 0), 12),  # Noćna smjena
+    }
 
-        # Inicijaliziraj praćenje sati za dan ako već nije postavljeno
-        if day_of_week not in day_hours:
-            day_hours[day_of_week] = 0
+    for work_day in work_days:
+        for shift_type, (start, end, shift_hours) in shift_options.items():
+            start_time = datetime.combine(today, start)
+            end_time = datetime.combine(today, end)
+            if shift_type == '20-08':
+                end_time += timedelta(days=1)  # Noćna smjena prelazi u sljedeći dan
 
-        # Pronađi dostupne zaposlenike
-        available_employees = Employee.objects.filter(
-            department=department,
-            roles=role,
-            available_days__name=day_of_week,
-            on_holiday=False,
-            on_sick_leave=False,
-        )
-
-        # Ako je noćna smjena, filtriraj samo zaposlenike koji mogu raditi noćne smjene
-        if shift_type == '20-08':
-            available_employees = available_employees.filter(can_work_night_shift=True)
-
-        # Sortiraj zaposlenike po broju dodijeljenih sati (najmanje iskorišteni prvi)
-        available_employees = sorted(
-            available_employees,
-            key=lambda emp: employee_hours[emp.id]
-        )
-
-        # Odredi početno i završno vrijeme smjene
-        if shift_type == '08-20':
-            start_time = time(8, 0)
-            end_time = time(20, 0)
-            shift_hours = 12
-        elif shift_type == '08-14':
-            start_time = time(8, 0)
-            end_time = time(14, 0)
-            shift_hours = 6
-        elif shift_type == '14-20':
-            start_time = time(14, 0)
-            end_time = time(20, 0)
-            shift_hours = 6
-        elif shift_type == '20-08':
-            start_time = time(20, 0)
-            end_time = time(8, 0)
-            shift_hours = night_shift_hours_needed  # Koristimo ručno unesene sate za noćne smjene
-        else:
-            continue  # Ako je nepoznat tip smjene, preskoči
-
-        # Dodijeli smjene
-        for employee in available_employees:
-            # Provjeri da li je ukupan broj sati za dan već ispunjen
-            if day_hours[day_of_week] >= total_hours_needed:
-                break
-
-            # Provjeri maksimalne sate tjedno i dnevno
-            if (
-                employee_hours[employee.id] + shift_hours <= employee.max_hours_per_week
-                and shift_hours <= employee.max_hours_per_day
-            ):
-                Shift.objects.create(
-                    department=department,
-                    day_of_week=day_of_week,
-                    start_time=start_time,
-                    end_time=end_time,
-                    employee=employee,
-                )
-                day_hours[day_of_week] += shift_hours
-                employee_hours[employee.id] += shift_hours
-
-        # Ako nema dovoljno zaposlenika, prikaži upozorenje
-        if day_hours[day_of_week] < total_hours_needed and request:
-            messages.warning(
-                request,
-                f"Nema dovoljno zaposlenika za pokriti {total_hours_needed} sati za {day_of_week} u odjelu {department.name}."
+            # Dohvati zaposlenike koji mogu raditi taj dan
+            available_employees = Employee.objects.filter(
+                available_days__name=work_day.name,
+                on_holiday=False,
+                on_sick_leave=False
+            ).exclude(
+                id__in=Shift.objects.filter(start_time__lte=end_time.time(), end_time__gte=start_time.time()).values_list('employee', flat=True)
             )
 
-    if request:
-        messages.success(request, "Smjene su uspješno generirane!")
-    return True
+            # Dodjeljivanje zaposlenika smjeni
+            for employee in available_employees:
+                if (
+                    employee_hours[employee.id] + shift_hours <= employee.max_hours_per_week
+                    and (employee.available_start_time is None or start >= employee.available_start_time)
+                    and (employee.available_end_time is None or end <= employee.available_end_time)
+                ):
+                    Shift.objects.create(
+                        employee=employee,
+                        department=employee.department,
+                        start_time=start_time.time(),
+                        end_time=end_time.time(),
+                        day_of_week=work_day.name,
+                        shift_type=shift_type,
+                        hours=shift_hours
+                    )
+                    employee_hours[employee.id] += shift_hours
+                    break  # Nakon što dodijelimo zaposlenika, idemo na sljedeću smjenu
+
+        # Ako nema dovoljno zaposlenika za određeni dan, prikazi upozorenje
+        required_shifts = ShiftRequirement.objects.filter(day_of_week=work_day.name).count()
+        assigned_shifts = Shift.objects.filter(day_of_week=work_day.name).count()
+
+        if assigned_shifts < required_shifts:
+            messages.warning(request, f"Nedovoljno zaposlenika za {work_day.name}!")
+
+    messages.success(request, "Smjene su uspješno generirane!")

@@ -42,19 +42,15 @@ class DateRangeFilter(SimpleListFilter):
             pass
         return queryset
 
-class CustomDateRangeForm(forms.Form):
-    start_date = forms.DateField(widget=forms.SelectDateWidget())
-    end_date = forms.DateField(widget=forms.SelectDateWidget())
-
 class FlexibleShiftInline(admin.TabularInline):
     model = FlexibleShift
-    extra = 1  # Omogućuje dodavanje više vremenskih okvira
+    extra = 1
 
 @admin.register(Department)
 class DepartmentAdmin(admin.ModelAdmin):
     list_display = ('name', 'description', 'work_start_time', 'work_end_time')
     search_fields = ('name',)
-    inlines = [FlexibleShiftInline]  # Omogućava unos fleksibilnih smjena
+    inlines = [FlexibleShiftInline]
 
 @admin.register(Role)
 class RoleAdmin(admin.ModelAdmin):
@@ -63,23 +59,16 @@ class RoleAdmin(admin.ModelAdmin):
 
 @admin.register(Employee)
 class EmployeeAdmin(admin.ModelAdmin):
-    list_display = ('first_name', 'last_name', 'max_hours_per_week', 'can_work_extra', 'rotate_weekends', 'can_work_any_time', 'can_work_night_shift', 'on_holiday', 'on_sick_leave')
-    list_filter = ('roles', 'department', 'can_work_extra', 'rotate_weekends', 'can_work_any_time', 'can_work_night_shift', 'on_holiday', 'on_sick_leave', 'available_days')
+    list_display = ('first_name', 'last_name', 'max_hours_per_week', 'total_assigned_hours', 'can_work_extra', 'on_holiday', 'on_sick_leave')
+    list_filter = ('roles', 'department', 'can_work_extra', 'on_holiday', 'on_sick_leave')
     search_fields = ('first_name', 'last_name')
     ordering = ('last_name',)
     filter_horizontal = ('roles', 'available_days')
 
-    fieldsets = (
-        ('Basic Information', {
-            'fields': ('first_name', 'last_name', 'roles', 'department')
-        }),
-        ('Work Conditions', {
-            'fields': ('max_hours_per_week', 'max_hours_per_day', 'preferred_shift_length', 'can_work_extra', 'rotate_weekends', 'avoid_holidays', 'can_work_any_time', 'can_work_night_shift', 'available_start_time', 'available_end_time', 'available_days'),
-        }),
-        ('Absences', {
-            'fields': ('total_annual_leave', 'used_annual_leave', 'sick_days', 'unauthorized_absences', 'on_holiday', 'on_sick_leave'),
-        }),
-    )
+    def total_assigned_hours(self, obj):
+        total_hours = Shift.objects.filter(employee=obj).aggregate(total_hours=admin.models.Sum('hours'))['total_hours'] or 0
+        return total_hours
+    total_assigned_hours.short_description = "Total Assigned Hours"
 
 @admin.register(ShiftRequirement)
 class ShiftRequirementAdmin(admin.ModelAdmin):
@@ -87,15 +76,6 @@ class ShiftRequirementAdmin(admin.ModelAdmin):
     list_filter = ('department', 'role', 'day_of_week')
     search_fields = ('department__name', 'role__name')
     ordering = ('day_of_week',)
-
-    fieldsets = (
-        ('Basic Information', {
-            'fields': ('department', 'role', 'day_of_week', 'shift_type')
-        }),
-        ('Shift Requirements', {
-            'fields': ('total_hours_needed', 'night_shift_hours_needed'),
-        }),
-    )
 
     actions = ['generate_schedule_action']
 
@@ -118,7 +98,7 @@ class HolidayAdmin(admin.ModelAdmin):
 
 @admin.register(Shift)
 class ShiftAdmin(admin.ModelAdmin):
-    list_display = ('department', 'day_of_week', 'start_time', 'end_time', 'employee')
+    list_display = ('department', 'day_of_week', 'start_time', 'end_time', 'employee', 'shift_hours')
     list_filter = ('department', 'day_of_week')
     search_fields = ('employee__first_name', 'employee__last_name')
     ordering = ('day_of_week', 'start_time')
@@ -126,8 +106,12 @@ class ShiftAdmin(admin.ModelAdmin):
     actions = ['generate_shifts_action']
 
     def generate_shifts_action(self, request, queryset):
-        generate_shifts()
-        self.message_user(request, "Smjene su uspješno generirane!")
+        generate_shifts(request)
+        messages.success(request, "Smjene su uspješno generirane!")
         return HttpResponse("Smjene su generirane.", content_type="text/plain")
 
     generate_shifts_action.short_description = "Generiraj smjene za sve zahtjeve"
+
+    def shift_hours(self, obj):
+        return obj.hours
+    shift_hours.short_description = "Hours"
