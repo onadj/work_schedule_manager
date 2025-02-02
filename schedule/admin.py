@@ -8,7 +8,9 @@ from django.contrib.admin import SimpleListFilter
 from django import forms
 from datetime import datetime, timedelta
 from django.db.models import Sum
-
+from import_export import resources
+from import_export.admin import ExportMixin
+from import_export import fields
 
 from .models import Employee, Department, Role, Holiday, Shift, AttendanceReport, ShiftRequirement, WorkDay, FlexibleShift
 from .generate_schedule import generate_shifts
@@ -48,6 +50,17 @@ class FlexibleShiftInline(admin.TabularInline):
     model = FlexibleShift
     extra = 1
 
+# Admin classes with ExportMixin
+class ShiftResource(resources.ModelResource):
+    department_name = fields.Field(column_name='Department', attribute='department__name')
+    employee_first_name = fields.Field(column_name='First Name', attribute='employee__first_name')
+    employee_last_name = fields.Field(column_name='Last Name', attribute='employee__last_name')
+
+    class Meta:
+        model = Shift
+        fields = ('id', 'department_name', 'employee_first_name', 'employee_last_name', 'start_time', 'end_time', 'day_of_week', 'shift_type', 'hours')
+
+
 @admin.register(Department)
 class DepartmentAdmin(admin.ModelAdmin):
     list_display = ('name', 'description', 'work_start_time', 'work_end_time')
@@ -68,7 +81,6 @@ class EmployeeAdmin(admin.ModelAdmin):
     filter_horizontal = ('roles', 'available_days')
 
     def total_assigned_hours(self, obj):
-        # Aggregate the total hours for the employee from Shift model
         total_hours = Shift.objects.filter(employee=obj).aggregate(total_hours=Sum('hours'))['total_hours'] or 0
         return total_hours
     total_assigned_hours.short_description = "Total Assigned Hours"
@@ -100,7 +112,7 @@ class HolidayAdmin(admin.ModelAdmin):
     ordering = ('date',)
 
 @admin.register(Shift)
-class ShiftAdmin(admin.ModelAdmin):
+class ShiftAdmin(ExportMixin, admin.ModelAdmin):
     list_display = ('department', 'day_of_week', 'start_time', 'end_time', 'employee', 'shift_hours')
     list_filter = ('department', 'day_of_week')
     search_fields = ('employee__first_name', 'employee__last_name')
@@ -118,3 +130,7 @@ class ShiftAdmin(admin.ModelAdmin):
     def shift_hours(self, obj):
         return obj.hours
     shift_hours.short_description = "Hours"
+
+    # Add Excel Export functionality
+    resource_class = ShiftResource
+    list_export = ('xls',)
