@@ -9,11 +9,13 @@ class Department(models.Model):
     def __str__(self):
         return self.name
 
+
 class Role(models.Model):
     name = models.CharField(max_length=100)
 
     def __str__(self):
         return self.name
+
 
 class WorkDay(models.Model):
     DAYS_OF_WEEK = [
@@ -30,7 +32,6 @@ class WorkDay(models.Model):
     def __str__(self):
         return self.name
 
-from django.db import models
 
 class Employee(models.Model):
     first_name = models.CharField(max_length=100)
@@ -66,19 +67,19 @@ class Employee(models.Model):
         return False
 
 
-
-
 class ShiftRequirement(models.Model):
     SHIFT_TYPES = [
-        ('08-20', '08-20'),  # Dnevna smjena (12 sati)
-        ('08-14', '08-14'),  # Jutarnja smjena (6 sati)
-        ('14-20', '14-20'),  # Popodnevna smjena (6 sati)
-        ('20-08', '20-08'),  # Noćna smjena (12 sati)
+        ('08:00-20:00', '08:00 - 20:00'),  # Full Day
+        ('08:00-14:00', '08:00 - 14:00'),  # Morning
+        ('14:00-20:00', '14:00 - 20:00'),  # Afternoon
+        ('20:00-08:00', '20:00 - 08:00'),  # Night Shift
+        ('09:30-14:30', '09:30 - 14:30'),  # Morning Extended
+        ('09:00-17:00', '09:00 - 17:00'),  # Day Shift
     ]
     department = models.ForeignKey(Department, on_delete=models.CASCADE)
     role = models.ForeignKey(Role, on_delete=models.CASCADE, null=True, blank=True)
     day_of_week = models.CharField(max_length=10, choices=WorkDay.DAYS_OF_WEEK)
-    shift_type = models.CharField(max_length=10, choices=SHIFT_TYPES, default='08-20')
+    shift_type = models.CharField(max_length=20, choices=SHIFT_TYPES, default='08:00-20:00')
     total_hours_needed = models.IntegerField(default=24)  # Ukupan broj sati potrebnih za dan
     night_shift_hours_needed = models.IntegerField(default=12)  # Broj sati potrebnih za noćne smjene
 
@@ -93,18 +94,31 @@ class FlexibleShift(models.Model):
     def __str__(self):
         return f"{self.department.name}: {self.shift_start_time} - {self.shift_end_time}"
 
+
 class Shift(models.Model):
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
     department = models.ForeignKey(Department, on_delete=models.CASCADE)
     start_time = models.TimeField()
     end_time = models.TimeField()
     day_of_week = models.CharField(max_length=10)
-    shift_type = models.CharField(max_length=10, choices=[('08-20', 'Full Day'), ('08-14', 'Morning'), ('14-20', 'Afternoon')], default='08-20')  # Dodano
-    hours = models.IntegerField(default=6)  # Dodano
+    shift_type = models.CharField(
+        max_length=20,
+        choices=[
+            ('08:00-20:00', '08:00 - 20:00'),
+            ('08:00-14:00', '08:00 - 14:00'),
+            ('14:00-20:00', '14:00 - 20:00'),
+            ('20:00-08:00', '20:00 - 08:00'),
+            ('09:30-14:30', '09:30 - 14:30'),
+            ('09:00-17:00', '09:00 - 17:00'),
+        ],
+        default='08:00-20:00'
+    )
+    hours = models.IntegerField(default=6)
 
     def __str__(self):
         return f"{self.employee} - {self.day_of_week} ({self.start_time} - {self.end_time})"
-        
+
+
 class AttendanceReport(models.Model):
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
     date = models.DateField()
@@ -113,6 +127,7 @@ class AttendanceReport(models.Model):
 
     def __str__(self):
         return f"{self.employee} - {self.status} on {self.date}"
+
 
 class Holiday(models.Model):
     name = models.CharField(max_length=100)

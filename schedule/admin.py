@@ -12,7 +12,7 @@ from import_export import resources
 from import_export.admin import ExportMixin
 from import_export import fields
 
-from .models import Employee, Department, Role, Holiday, Shift, AttendanceReport, ShiftRequirement, WorkDay, FlexibleShift
+from .models import Employee, Department, Role, Holiday, Shift, AttendanceReport, ShiftRequirement, WorkDay, FlexibleShift, Department
 from .generate_schedule import generate_shifts
 
 class DateRangeFilter(SimpleListFilter):
@@ -88,18 +88,21 @@ class EmployeeAdmin(admin.ModelAdmin):
 @admin.register(ShiftRequirement)
 class ShiftRequirementAdmin(admin.ModelAdmin):
     list_display = ('department', 'role', 'day_of_week', 'shift_type', 'total_hours_needed', 'night_shift_hours_needed')
-    list_filter = ('department', 'role', 'day_of_week')
+    list_filter = ('department', 'role', 'day_of_week', 'shift_type')  # Dodano filtriranje po 'shift_type'
     search_fields = ('department__name', 'role__name')
     ordering = ('day_of_week',)
 
     actions = ['generate_schedule_action']
 
     def generate_schedule_action(self, request, queryset):
+        # Pozivanje funkcije za generiranje smjena
         generate_shifts(request)
         messages.success(request, "Raspored je uspješno generiran za sve odjele!")
         return redirect("/admin/schedule/shiftrequirement/")
 
     generate_schedule_action.short_description = "Generiraj raspored za sve odjele"
+
+
 
 @admin.register(WorkDay)
 class WorkDayAdmin(admin.ModelAdmin):
@@ -119,13 +122,7 @@ class ShiftAdmin(ExportMixin, admin.ModelAdmin):
     ordering = ('day_of_week', 'start_time')
 
     actions = ['generate_shifts_action']
-
-    def generate_shifts_action(self, request, queryset):
-        generate_shifts(request)
-        messages.success(request, "Smjene su uspješno generirane!")
-        return HttpResponse("Smjene su generirane.", content_type="text/plain")
-
-    generate_shifts_action.short_description = "Generiraj smjene za sve zahtjeve"
+    
 
     def shift_hours(self, obj):
         return obj.hours

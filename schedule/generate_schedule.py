@@ -1,6 +1,6 @@
 from datetime import datetime, time, timedelta
 from django.contrib import messages
-from .models import Employee, Shift, WorkDay, ShiftRequirement
+from .models import Employee, Shift, WorkDay, ShiftRequirement, Department
 
 def generate_shifts(request):
     today = datetime.now().date()
@@ -15,6 +15,8 @@ def generate_shifts(request):
         '08-14': (time(8, 0), time(14, 0), 6),
         '14-20': (time(14, 0), time(20, 0), 6),
         '20-08': (time(20, 0), time(8, 0), 12),  # Noćna smjena
+        '09:30-14:30': (time(9, 30), time(14, 30), 5),
+        '09:00-17:00': (time(9, 0), time(17, 0), 8),  # Dodano vrijeme od 09:00 do 17:00
     }
     
     for work_day in work_days:
@@ -24,51 +26,54 @@ def generate_shifts(request):
             if shift_type == '20-08':
                 end_time += timedelta(days=1)  # Noćna smjena prelazi u sljedeći dan
 
-            available_employees = Employee.objects.filter(
-                available_days__name=work_day.name,
-                on_holiday=False,
-                on_sick_leave=False
-            )
-            
-            for employee in available_employees:
-                # Provjera je li zaposlenik već dodijeljen smjeni na taj dan
-                existing_shift = Shift.objects.filter(
-                    employee=employee,
-                    day_of_week=work_day.name
-                ).exists()
+            # Filtriraj zaposlenike prema odjelu, radnim danima, slobodama itd.
+            for department in Department.objects.all():
+                available_employees = Employee.objects.filter(
+                    department=department,  # Filtriraj prema odjelu
+                    available_days__name=work_day.name,
+                    on_holiday=False,
+                    on_sick_leave=False
+                )
                 
-                if existing_shift:
-                    continue  # Preskoči zaposlenika ako je već dodijeljen smjeni za taj dan
-
-                last_shift_end = employee_hours[employee.id]['last_end_time']
-                last_shift_day = employee_hours[employee.id]['last_day']
-                
-                # Provjera da zaposlenik ne radi odmah nakon smjene isti dan
-                if last_shift_end and last_shift_day == work_day.name:
-                    if last_shift_end > start:
-                        continue  # Preskoči ovog zaposlenika
-                
-                if (
-                    employee_hours[employee.id]['hours'] + shift_hours <= employee.max_hours_per_week
-                    and (employee.available_start_time is None or start >= employee.available_start_time)
-                    and (employee.available_end_time is None or end <= employee.available_end_time)
-                ):
-                    Shift.objects.create(
+                for employee in available_employees:
+                    # Provjera je li zaposlenik već dodijeljen smjeni na taj dan
+                    existing_shift = Shift.objects.filter(
                         employee=employee,
-                        department=employee.department,
-                        start_time=start_time.time(),
-                        end_time=end_time.time(),
-                        day_of_week=work_day.name,
-                        shift_type=shift_type,
-                        hours=shift_hours
-                    )
+                        day_of_week=work_day.name
+                    ).exists()
                     
-                    # Ažuriraj evidenciju radnih sati i zadnjeg završetka smjene
-                    employee_hours[employee.id]['hours'] += shift_hours
-                    employee_hours[employee.id]['last_end_time'] = end
-                    employee_hours[employee.id]['last_day'] = work_day.name
-                    break
-        
+                    if existing_shift:
+                        continue  # Preskoči zaposlenika ako je već dodijeljen smjeni za taj dan
+
+                    last_shift_end = employee_hours[employee.id]['last_end_time']
+                    last_shift_day = employee_hours[employee.id]['last_day']
+                    
+                    # Provjera da zaposlenik ne radi odmah nakon smjene isti dan
+                    if last_shift_end and last_shift_day == work_day.name:
+                        if last_shift_end > start:
+                            continue  # Preskoči ovog zaposlenika
+                    
+                    if (
+                        employee_hours[employee.id]['hours'] + shift_hours <= employee.max_hours_per_week
+                        and (employee.available_start_time is None or start >= employee.available_start_time)
+                        and (employee.available_end_time is None or end <= employee.available_end_time)
+                    ):
+                        Shift.objects.create(
+                            employee=employee,
+                            department=employee.department,
+                            start_time=start_time.time(),
+                            end_time=end_time.time(),
+                            day_of_week=work_day.name,
+                            shift_type=shift_type,
+                            hours=shift_hours
+                        )
+                        
+                        # Ažuriraj evidenciju radnih sati i zadnjeg završetka smjene
+                        employee_hours[employee.id]['hours'] += shift_hours
+                        employee_hours[employee.id]['last_end_time'] = end
+                        employee_hours[employee.id]['last_day'] = work_day.name
+                        break
+
         # Provjera da li su ispunjeni zahtjevi smjena
         required_shifts = ShiftRequirement.objects.filter(day_of_week=work_day.name).count()
         assigned_shifts = Shift.objects.filter(day_of_week=work_day.name).count()
